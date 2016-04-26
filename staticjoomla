@@ -1,0 +1,357 @@
+#!/usr/bin/env python2
+
+'''Staticjoomla: Protect against Joomla security flaws by not running Joomla in public.'''
+
+__copyright__ = '''\
+Copyright (C) 2016  Volker Diels-Grabsch <v@njh.eu>
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+'''
+
+import sys
+sys.dont_write_bytecode = True
+
+import ConfigParser
+import collections
+import errno
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+Config = collections.namedtuple('Config', 'schema, host, port, user, password own_domains, linked_domains')
+Resource = collections.namedtuple('Resource', 'path, data')
+
+class TempDir:
+    def __init__(self, rootdir):
+        self.parentdir = os.path.join(rootdir)
+    def __enter__(self):
+        self.tempdir = tempfile.mkdtemp(suffix='', prefix='temp-', dir=self.parentdir)
+        return self.tempdir
+    def __exit__(self, type, value, traceback):
+        shutil.rmtree(self.tempdir)
+
+def makedirs_exist_ok(name, mode):
+    # Portability with Python 2, see http://stackoverflow.com/a/600612
+    try:
+        os.makedirs(name, mode)
+    except OSError as e:
+        if e.errno == errno.EEXIST and os.path.isdir(name):
+            pass
+        else:
+            raise
+
+def get_internal_url(schema, host, port):
+    if schema == 'https' and port == '443':
+        return '{}://{}/'.format(schema, host)
+    if schema == 'http' and port == '80':
+        return '{}://{}/'.format(schema, host)
+    return '{}://{}:{}/'.format(schema, host, port)
+
+def get_rel_path(path, basepath):
+    prefix = basepath + '/'
+    if not path.startswith(prefix):
+        raise ValueError('Path {!r} does not start with prefix {!r}'.format(path, prefix))
+    return path[len(prefix):]
+
+def get_resources(resourcesdir):
+    resources = []
+    for dirpath, dirnames, filenames in os.walk(resourcesdir):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            with open(filepath, 'rb') as f:
+                data = f.read()
+            resources.append(
+                Resource(
+                    path=get_rel_path(filepath, resourcesdir),
+                    data=data,
+                ),
+            )
+    return resources
+
+def download_website(rootdir, schema, host, port, user, password):
+    with TempDir(rootdir) as tempdir:
+        args = [
+            'wget',
+            '-rEpH',
+            '-nH',
+            '-l',
+            'inf',
+            '-D',
+            host,
+            '-nv',
+            '--http-user={}'.format(user),
+            '--http-password={}'.format(password),
+            get_internal_url(schema, host, port),
+        ]
+        proc = subprocess.Popen(args, cwd=tempdir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = proc.communicate()
+        if proc.returncode != 0:
+            raise ValueError('Failed to download website:\n{}\n{}'.format(output, error))
+        return get_resources(tempdir)
+
+def has_binary_suffix(path):
+    binary_suffixes = [
+        '.JPG',
+        '.eot',
+        '.gif',
+        '.ico',
+        '.jpeg',
+        '.jpg',
+        '.js',
+        '.pdf',
+        '.png',
+        '.swf',
+        '.ttf',
+        '.woff',
+    ]
+    text_suffixes = [
+        '.css',
+        '.html',
+        '.svg',
+    ]
+    if any(path.endswith(binary_suffix) for binary_suffix in binary_suffixes):
+        return True
+    if any(path.endswith(text_suffix) for text_suffix in text_suffixes):
+        return False
+    raise ValueError('Unknown suffix of path: {!r}'.format(path))
+
+def fix_line_endings(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    data = resource.data
+    data = data.replace('\r\n', '\n')
+    data = data.replace('\r', '\n')
+    return data
+
+def stabilize_hidden_form_field_names(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    data = resource.data
+    data = re.sub(
+        r'<input type="hidden" name="[0-9a-f]{32}" value="1" />',
+        '<input type="hidden" name="e7db122ac127e2f53c2595250560f9f6" value="1" />',
+        data,
+    )
+    data = re.sub(
+        r'<input type="hidden" name="return" value="[^"]+" />',
+        '<input type="hidden" name="return" value="" />',
+        data,
+    )
+    return data
+
+def replace_all(s, replacements):
+    result = s
+    for src, dest in replacements:
+        result = result.replace(src, dest)
+    return result
+
+def without_duplicates_keep_order(iterable):
+    s = set()
+    result = []
+    for e in iterable:
+        if not e in s:
+            s.add(e)
+            result.append(e)
+    return result
+
+def stabilize_email_obfuscation_ids(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    new_offset = 89677
+    cloak_numbers_with_duplicates = re.findall(r'cloak([0-9]+)', resource.data)
+    cloak_numbers = without_duplicates_keep_order(cloak_numbers_with_duplicates)
+    prefixes = ['cloak', 'addy', 'addy_text']
+    replacements = [
+        ('{}{}'.format(prefix, cloak_number), '{}{}'.format(prefix, new_offset + i))
+        for i, cloak_number in enumerate(cloak_numbers)
+        for prefix in prefixes
+    ]
+    return replace_all(resource.data, replacements)
+
+def remove_base_href(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    return re.sub(r'[\t ]*<base href="[^"]*"[\t ]*/>\n', '', resource.data)
+
+def remove_author_tags(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    return re.sub(r'[\t ]*<meta name="author" content="[^"]+" />\n', '', resource.data)
+
+def remove_duplicate_jcaption(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    return re.sub(
+        r'''(jQuery\(window\).on\('load',  function\(\) \{\n\s+new JCaption\('img.caption'\);\n\s+\}\);\n){2,}''',
+        r'\1',
+        resource.data,
+    )
+
+def remove_link_rel_canonical(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    return re.sub(r'[\t ]*<link href="[^"]+" rel="canonical" />\n', '', resource.data)
+
+def remove_link_rel_search(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    return re.sub(r'[\t ]*<link href="[^"]+" rel="search" title="[^"]+" type="[^"]+" />\n', '', resource.data)
+
+def remove_noscript_tag(resource):
+    if has_binary_suffix(resource.path):
+        return resource.data
+    return re.sub(r'<noscript>.*?</noscript>', '', resource.data)
+
+def fix_links(schema, host, port, own_domains):
+    def f(resource):
+        if has_binary_suffix(resource.path):
+            return resource.data
+        internal_prefix = get_internal_url(schema, host, port)
+        absolute_prefixes = [internal_prefix] + ['http://{}/'.format(d) for d in own_domains]
+        relative_prefix = '../' * resource.path.count('/')
+        data = resource.data
+        for absolute_prefix in absolute_prefixes:
+            data = data.replace(absolute_prefix, relative_prefix)
+        data = data.replace('href="/', 'href="' + relative_prefix)
+        return data
+    return f
+
+def resources_map_data(resources, f):
+    return [
+        Resource(path=r.path, data=f(r))
+        for r in resources
+    ]
+
+def resources_map_path(resources, f):
+    return [
+        Resource(path=f(r.path), data=r.data)
+        for r in resources
+    ]
+
+def resources_filter_path(resources, f):
+    return [r for r in resources if f(r.path)]
+
+def html_files_to_directories(path):
+    if path == 'index.html':
+        return path
+    html_suffix = '.html'
+    if not path.endswith(html_suffix):
+        return path
+    return path[:-len(html_suffix)] + '/index.html'
+
+def no_question_mark(path):
+    return '?' not in path
+
+def fix_dot_number_files(path):
+    '''Fix paths such as "path/to/somesite.1.html" to "path/to/somesite.html".'''
+    return path.replace('.1.', '.')
+
+def cleanup_resources(raw_resources, schema, host, port, own_domains):
+    r = raw_resources
+    r = resources_filter_path(r, no_question_mark)
+    r = resources_map_path(r, fix_dot_number_files)
+    r = resources_map_path(r, html_files_to_directories)
+    r = resources_map_data(r, fix_line_endings)
+    r = resources_map_data(r, stabilize_hidden_form_field_names)
+    r = resources_map_data(r, stabilize_email_obfuscation_ids)
+    r = resources_map_data(r, remove_base_href)
+    r = resources_map_data(r, remove_author_tags)
+    r = resources_map_data(r, remove_duplicate_jcaption)
+    r = resources_map_data(r, remove_link_rel_canonical)
+    r = resources_map_data(r, remove_link_rel_search)
+    r = resources_map_data(r, remove_noscript_tag)
+    r = resources_map_data(r, fix_links(schema, host, port, own_domains))
+    return r
+
+def check_duplicate_paths(paths):
+    seen_paths = set()
+    for p in paths:
+        if p in seen_paths:
+            raise ValueError('Duplicate path: {!r}'.format(p))
+        seen_paths.add(p)
+
+def check_directory_paths(paths):
+    for p in paths:
+        for q in paths:
+            if p.startswith('{}/'.format(q)):
+                raise ValueError('Path {!r} uses existing path {!r} as directory'.format(p, q))
+
+def check_base_href(resources):
+    for r in resources:
+        if '<base' in r.data:
+            raise ValueError('Resource {!r} contains <base> element'.format(r.path))
+
+def check_internal_host(host, resources):
+    for r in resources:
+        if host in r.data:
+            raise ValueError('Resource {!r} contains internal host name {!r}'.format(r.path, host))
+
+def check_linked_domains(linked_domains, resources):
+    for r in resources:
+        if has_binary_suffix(r.path):
+            continue
+        domains = re.findall(r'//([a-z0-9.][a-z0-9.-]*)', r.data)
+        for domain in domains:
+            if domain not in linked_domains:
+                raise ValueError('Resource {!r} contains link to unknown domain {!r}'.format(r.path, domain))
+
+def check_resources(resources, host, linked_domains):
+    paths = [r.path for r in resources]
+    check_duplicate_paths(paths)
+    check_directory_paths(paths)
+    check_base_href(resources)
+    check_internal_host(host, resources)
+    check_linked_domains(linked_domains, resources)
+
+def write_resources(outputdir, resources):
+    if os.path.exists(outputdir):
+        shutil.rmtree(outputdir)
+    for r in resources:
+        outputpath = os.path.join(outputdir, r.path)
+        makedirs_exist_ok(os.path.dirname(outputpath), 0700)
+        with open(outputpath, 'wb') as f:
+            f.write(r.data)
+
+def get_config(rootdir):
+    filepath = os.path.join(rootdir, 'config.ini')
+    cp = ConfigParser.ConfigParser()
+    cp.read(filepath)
+    return Config(
+        schema=cp.get('config', 'schema'),
+        host=cp.get('config', 'host'),
+        port=cp.get('config', 'port'),
+        user=cp.get('config', 'user'),
+        password=cp.get('config', 'password'),
+        own_domains=cp.get('config', 'own_domains').split(),
+        linked_domains=cp.get('config', 'linked_domains').split(),
+    )
+
+def run(rootdir, outputdir):
+    c = get_config(rootdir)
+    externaldir = os.path.join(rootdir, 'external/external')
+    dl_raw_resources = download_website(rootdir, c.schema, c.host, c.port, c.user, c.password)
+    dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
+    external_resources = get_resources(externaldir)
+    resources = dl_resources + external_resources
+    check_resources(resources, c.host, c.linked_domains)
+    write_resources(outputdir, resources)
+
+def main():
+    rootdir = os.path.abspath(os.path.dirname(__file__))
+    outputdir = os.path.join(rootdir, 'public/output')
+    run(rootdir, outputdir)
+
+main()

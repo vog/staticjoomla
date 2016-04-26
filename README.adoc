@@ -1,0 +1,7 @@
+# Staticjoomla
+
+Protect against Joomla security flaws by not running Joomla in public.
+
+## License
+
+This project is licensed under the https://en.wikipedia.org/wiki/ISC_license[ISC license].
