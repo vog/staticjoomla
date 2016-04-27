@@ -341,11 +341,11 @@ def get_config(rootdir):
 
 def run(rootdir, outputdir):
     c = get_config(rootdir)
-    externaldir = os.path.join(rootdir, 'additional/public')
+    additionaldir = os.path.join(rootdir, 'additional/public')
     dl_raw_resources = download_website(rootdir, c.schema, c.host, c.port, c.user, c.password)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
-    external_resources = get_resources(externaldir)
-    resources = dl_resources + external_resources
+    additional_resources = get_resources(additionaldir)
+    resources = dl_resources + additional_resources
     check_resources(resources, c.host, c.linked_domains)
     write_resources(outputdir, resources)
 
