@@ -341,7 +341,7 @@ def get_config(rootdir):
 
 def run(rootdir, outputdir):
     c = get_config(rootdir)
-    externaldir = os.path.join(rootdir, 'external/external')
+    externaldir = os.path.join(rootdir, 'additional/public')
     dl_raw_resources = download_website(rootdir, c.schema, c.host, c.port, c.user, c.password)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
     external_resources = get_resources(externaldir)
@@ -351,7 +351,7 @@ def run(rootdir, outputdir):
 
 def main():
     rootdir = os.path.abspath(os.path.dirname(__file__))
-    outputdir = os.path.join(rootdir, 'public/output')
+    outputdir = os.path.join(rootdir, 'output/public')
     run(rootdir, outputdir)
 
 main()
