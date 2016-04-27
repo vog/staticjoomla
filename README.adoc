@@ -2,6 +2,14 @@
 
 Protect against Joomla security flaws by not running Joomla in public.
 
+This tool copies your internal (via HTTPS and HTTP Auth protected) Joomla pages,
+performs a whole bunch of necessary cleanup steps
+and makes them available as static files.
+
+It enables you to implement the
+http://www.martinfowler.com/bliki/EditingPublishingSeparation.html[Editing-Publishing Separation]
+pattern despite using Joomla.
+
 ## License
 
 This project is licensed under the https://en.wikipedia.org/wiki/ISC_license[ISC license].
