@@ -99,7 +99,7 @@ def download_website(rootdir, schema, host, port, user, password):
         proc = subprocess.Popen(args, cwd=tempdir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = proc.communicate()
         if proc.returncode != 0:
-            raise ValueError('Failed to download website:\n{}\n{}'.format(output, error))
+            raise ValueError('Failed to download website:\n{}\n{}\n\nFailed to download website!\n'.format(output, error))
         return get_resources(tempdir)
 
 def has_binary_suffix(path):
