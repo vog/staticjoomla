@@ -276,6 +276,31 @@ def cleanup_resources(raw_resources, schema, host, port, own_domains):
     r = resources_map_data(r, fix_links(schema, host, port, own_domains))
     return r
 
+def apply_template_to_resource(resource, templatepath):
+    suffix = '.content'
+    title_prefix = '= '
+    if not resource.path.endswith(suffix):
+        return resource
+    with open(templatepath, 'rb') as f:
+        template = f.read()
+    data_normalized = resource.data.replace('\r\n', '\n').replace('\r', '\n')
+    if not '\n' in data_normalized:
+        raise ValueError('Missing newline in resource {!r}'.format(resource.path))
+    firstline, content = data_normalized.split('\n', 1)
+    if not firstline.startswith(title_prefix):
+        raise ValueError('Invalid first (title) line in resource {!r}: {!r}'.format(resource.path, firstline))
+    title = firstline[len(title_prefix):]
+    return Resource(
+        path='{}.html'.format(resource.path[:-len(suffix)]),
+        data=template.replace('@!title!@', title).replace('@!content!@', content),
+    )
+
+def apply_template(raw_resources, templatepath):
+    return [
+        apply_template_to_resource(resource, templatepath)
+        for resource in raw_resources
+    ]
+
 def check_duplicate_paths(paths):
     seen_paths = set()
     for p in paths:
@@ -342,9 +367,11 @@ def get_config(rootdir):
 def run(rootdir, outputdir):
     c = get_config(rootdir)
     additionaldir = os.path.join(rootdir, 'additional/public')
+    templatepath = os.path.join(rootdir, 'additional/template.html')
     dl_raw_resources = download_website(rootdir, c.schema, c.host, c.port, c.user, c.password)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
-    additional_resources = get_resources(additionaldir)
+    additional_raw_resources = get_resources(additionaldir)
+    additional_resources = apply_template(additional_raw_resources, templatepath)
     resources = dl_resources + additional_resources
     check_resources(resources, c.host, c.linked_domains)
     write_resources(outputdir, resources)
