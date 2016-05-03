@@ -31,8 +31,20 @@ import subprocess
 import sys
 import tempfile
 
-Config = collections.namedtuple('Config', 'schema, host, port, user, password own_domains, linked_domains')
-Resource = collections.namedtuple('Resource', 'path, data')
+Config = collections.namedtuple('Config', [
+    'schema',
+    'host',
+    'port',
+    'user',
+    'password',
+    'own_domains',
+    'linked_domains',
+])
+
+Resource = collections.namedtuple('Resource', [
+    'path',
+    'data',
+])
 
 class TempDir:
     def __init__(self, rootdir):
