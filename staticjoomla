@@ -233,6 +233,8 @@ def fix_links(schema, host, port, own_domains):
         data = data.replace(internal_prefix, relative_prefix)
         for own_domain in own_domains:
             data = data.replace('http://{}/'.format(own_domain), relative_prefix)
+            data = data.replace('https://{}/'.format(own_domain), relative_prefix)
+            data = data.replace('//{}/'.format(own_domain), relative_prefix)
         def replace_href(m):
             # Replace "/path/to/site" but not "http://HOST/path/to/site" or "path/to/site"
             href = m.group(1)
