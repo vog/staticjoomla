@@ -228,11 +228,11 @@ def fix_links(schema, host, port, own_domains):
         if has_binary_suffix(resource.path):
             return resource.data
         internal_prefix = get_internal_url(schema, host, port)
-        absolute_prefixes = [internal_prefix] + ['http://{}/'.format(d) for d in own_domains]
         relative_prefix = '../' * resource.path.count('/')
         data = resource.data
-        for absolute_prefix in absolute_prefixes:
-            data = data.replace(absolute_prefix, relative_prefix)
+        data = data.replace(internal_prefix, relative_prefix)
+        for own_domain in own_domains:
+            data = data.replace('http://{}/'.format(own_domain), relative_prefix)
         data = data.replace('href="/', 'href="' + relative_prefix)
         return data
     return f
