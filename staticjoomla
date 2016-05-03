@@ -39,6 +39,10 @@ Config = collections.namedtuple('Config', [
     'password',
     'own_domains',
     'linked_domains',
+    'rootdir',
+    'additionaldir',
+    'templatepath',
+    'outputdir',
 ])
 
 Resource = collections.namedtuple('Resource', [
@@ -374,23 +378,25 @@ def get_config(rootdir):
         password=cp.get('config', 'password'),
         own_domains=cp.get('config', 'own_domains').split(),
         linked_domains=cp.get('config', 'linked_domains').split(),
+        rootdir=rootdir,
+        additionaldir=os.path.join(rootdir, 'additional/public'),
+        templatepath=os.path.join(rootdir, 'additional/template.html'),
+        outputdir=os.path.join(rootdir, 'output/public'),
     )
 
-def run(rootdir, outputdir):
-    c = get_config(rootdir)
-    additionaldir = os.path.join(rootdir, 'additional/public')
-    templatepath = os.path.join(rootdir, 'additional/template.html')
-    dl_raw_resources = download_website(rootdir, c.schema, c.host, c.port, c.user, c.password)
+def run(config):
+    c = config
+    dl_raw_resources = download_website(c.rootdir, c.schema, c.host, c.port, c.user, c.password)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
-    additional_raw_resources = get_resources(additionaldir)
-    additional_resources = apply_template(additional_raw_resources, templatepath)
+    additional_raw_resources = get_resources(c.additionaldir)
+    additional_resources = apply_template(additional_raw_resources, c.templatepath)
     resources = dl_resources + additional_resources
     check_resources(resources, c.host, c.linked_domains)
-    write_resources(outputdir, resources)
+    write_resources(c.outputdir, resources)
 
 def main():
     rootdir = os.path.abspath(os.path.dirname(__file__))
-    outputdir = os.path.join(rootdir, 'output/public')
-    run(rootdir, outputdir)
+    config = get_config(rootdir)
+    run(config)
 
 main()
