@@ -31,6 +31,7 @@ import subprocess
 import sys
 
 Config = collections.namedtuple('Config', [
+    'offline',
     'schema',
     'host',
     'port',
@@ -362,6 +363,7 @@ def get_config(rootdir):
     cp = ConfigParser.ConfigParser()
     cp.read(filepath)
     return Config(
+        offline={'yes': True, 'no': False}[cp.get('config', 'offline')],
         schema=cp.get('config', 'schema'),
         host=cp.get('config', 'host'),
         port=cp.get('config', 'port'),
@@ -377,7 +379,8 @@ def get_config(rootdir):
 
 def run(config):
     c = config
-    download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password)
+    if not c.offline:
+        download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password)
     dl_raw_resources = get_resources(c.downloaddir)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
     additional_raw_resources = get_resources(c.additionaldir)

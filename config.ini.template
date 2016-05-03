@@ -1,4 +1,5 @@
 [config]
+offline = no
 schema = https
 host = example.com
 port = 443
