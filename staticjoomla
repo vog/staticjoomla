@@ -35,7 +35,6 @@ Config = collections.namedtuple('Config', [
     'user',
     'password',
     'own_domains',
-    'linked_domains',
     'downloaddir',
     'additionaldir',
     'templatepath',
@@ -339,22 +338,27 @@ def check_internal_host(host, resources):
         if host in r.data:
             raise ValueError('Resource {!r} contains internal host name {!r}'.format(r.path, host))
 
-def check_linked_domains(linked_domains, resources):
+def check_linked_domains(host, resources):
+    internal_domains = [
+        host,
+        '127.0.0.1',
+        'localhost',
+    ]
     for r in resources:
         if has_binary_suffix(r.path):
             continue
-        domains = re.findall(r'//([a-z0-9.][a-z0-9.-]*)', r.data)
-        for domain in domains:
-            if domain not in linked_domains:
-                raise ValueError('Resource {!r} contains link to unknown domain {!r}'.format(r.path, domain))
+        linked_domains = re.findall(r'//([a-z0-9.][a-z0-9.-]*)', r.data)
+        for domain in linked_domains:
+            if domain in internal_domains:
+                raise ValueError('Resource {!r} contains link to internal domain {!r}'.format(r.path, domain))
 
-def check_resources(resources, host, linked_domains):
+def check_resources(resources, host):
     paths = [r.path for r in resources]
     check_duplicate_paths(paths)
     check_directory_paths(paths)
     check_base_href(resources)
     check_internal_host(host, resources)
-    check_linked_domains(linked_domains, resources)
+    check_linked_domains(host, resources)
 
 def write_resources(outputdir, resources):
     if os.path.exists(outputdir):
@@ -377,7 +381,6 @@ def get_config(rootdir):
         user=cp.get('config', 'user'),
         password=cp.get('config', 'password'),
         own_domains=cp.get('config', 'own_domains').split(),
-        linked_domains=cp.get('config', 'linked_domains').split(),
         downloaddir=os.path.join(rootdir, 'download'),
         additionaldir=os.path.join(rootdir, 'additional/public'),
         templatepath=os.path.join(rootdir, 'additional/template.html'),
@@ -393,7 +396,7 @@ def run(config):
     additional_raw_resources = get_resources(c.additionaldir)
     additional_resources = apply_template(additional_raw_resources, c.templatepath)
     resources = dl_resources + additional_resources
-    check_resources(resources, c.host, c.linked_domains)
+    check_resources(resources, c.host)
     write_resources(c.outputdir, resources)
 
 def main():

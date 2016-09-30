@@ -6,4 +6,3 @@ port = 443
 user = test
 password = test
 own_domains = example.com www.example.com
-linked_domains = other.example.net
