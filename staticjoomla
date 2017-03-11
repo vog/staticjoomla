@@ -125,6 +125,7 @@ def has_binary_suffix(path):
         '.css',
         '.html',
         '.svg',
+        '.txt',
     ]
     if any(path.endswith(binary_suffix) for binary_suffix in binary_suffixes):
         return True
