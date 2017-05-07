@@ -34,6 +34,7 @@ Config = collections.namedtuple('Config', [
     'port',
     'user',
     'password',
+    'keep_filenames',
     'own_domains',
     'downloaddir',
     'additionaldir',
@@ -260,13 +261,18 @@ def resources_map_path(resources, f):
 def resources_filter_path(resources, f):
     return [r for r in resources if f(r.path)]
 
-def html_files_to_directories(path):
-    if path == 'index.html':
-        return path
-    html_suffix = '.html'
-    if not path.endswith(html_suffix):
-        return path
-    return path[:-len(html_suffix)] + '/index.html'
+def html_files_to_directories(keep_filenames):
+    def f(path):
+        for prefix in keep_filenames:
+            if path.startswith(prefix):
+                return path
+        if path == 'index.html':
+            return path
+        html_suffix = '.html'
+        if not path.endswith(html_suffix):
+            return path
+        return path[:-len(html_suffix)] + '/index.html'
+    return f
 
 def no_question_mark(path):
     return '?' not in path
@@ -275,11 +281,11 @@ def fix_dot_number_files(path):
     '''Fix paths such as "path/to/somesite.1.html" to "path/to/somesite.html".'''
     return path.replace('.1.', '.')
 
-def cleanup_resources(raw_resources, schema, host, port, own_domains):
+def cleanup_resources(raw_resources, schema, host, port, keep_filenames, own_domains):
     r = raw_resources
     r = resources_filter_path(r, no_question_mark)
     r = resources_map_path(r, fix_dot_number_files)
-    r = resources_map_path(r, html_files_to_directories)
+    r = resources_map_path(r, html_files_to_directories(keep_filenames))
     r = resources_map_data(r, fix_line_endings)
     r = resources_map_data(r, stabilize_hidden_form_field_names)
     r = resources_map_data(r, stabilize_email_obfuscation_ids)
@@ -382,6 +388,7 @@ def get_config(rootdir):
         port=cp.get('config', 'port'),
         user=cp.get('config', 'user'),
         password=cp.get('config', 'password'),
+        keep_filenames=cp.get('config', 'keep_filenames').split(),
         own_domains=cp.get('config', 'own_domains').split(),
         downloaddir=os.path.join(rootdir, 'download'),
         additionaldir=os.path.join(rootdir, 'additional/public'),
@@ -394,7 +401,7 @@ def run(config):
     if not c.offline:
         download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password)
     dl_raw_resources = get_resources(c.downloaddir)
-    dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.own_domains)
+    dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.keep_filenames, c.own_domains)
     additional_raw_resources = get_resources(c.additionaldir)
     additional_resources = apply_template(additional_raw_resources, c.templatepath)
     resources = dl_resources + additional_resources

@@ -5,4 +5,5 @@ host = example.com
 port = 443
 user = test
 password = test
+keep_filenames =
 own_domains = example.com www.example.com
