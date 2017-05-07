@@ -123,6 +123,7 @@ def has_binary_suffix(path):
     ]
     text_suffixes = [
         '.css',
+        '.htm',
         '.html',
         '.svg',
         '.txt',
