@@ -3,7 +3,7 @@
 '''Staticjoomla: Protect against Joomla security flaws by not running Joomla in public.'''
 
 __copyright__ = '''\
-Copyright (C) 2016  Volker Diels-Grabsch <v@njh.eu>
+Copyright (C) Volker Diels-Grabsch <v@njh.eu>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
