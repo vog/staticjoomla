@@ -10,6 +10,43 @@ It enables you to implement the
 http://www.martinfowler.com/bliki/EditingPublishingSeparation.html[Editing-Publishing Separation]
 pattern despite using Joomla.
 
+## User Installation
+
+Clone the `git` repository:
+
+```shell
+git clone https://github.com/vog/staticjoomla.git
+```
+
+Put `staticjoomla` into PATH, if you like (assuming `~/bin` is in your `PATH`):
+
+```shell
+install -d ~/bin
+ln -sfT $(pwd)/staticjoomla/staticjoomla ~/bin/staticjoomla
+```
+
+## System-wide Installation
+
+Clone the `git` repository:
+
+```shell
+git clone https://github.com/vog/staticjoomla.git /opt/staticjoomla
+```
+
+Put `staticjoomla` into PATH, if you like:
+
+```shell
+install -m 755 -d /usr/local/bin
+ln -sfT $(pwd)/staticjoomla/staticjoomla /usr/local/bin/staticjoomla
+```
+
+## Upgrade
+
+```shell
+cd /PATH/TO/staticjoomla
+git pull
+```
+
 ## License
 
 This project is licensed under the https://en.wikipedia.org/wiki/ISC_license[ISC license].
