@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-'''Staticjoomla: Protect against Joomla security flaws by not running Joomla in public.'''
+'''Staticjoomla - Protect against Joomla security flaws by not running Joomla in public'''
 
 __copyright__ = '''\
 Copyright (C) Volker Diels-Grabsch <v@njh.eu>
