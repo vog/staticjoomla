@@ -26,6 +26,7 @@ from os.path import abspath, dirname, exists, isdir, join
 from re import findall, sub
 from shutil import rmtree
 from subprocess import PIPE, Popen
+from sys import argv, stderr
 
 Config = namedtuple('Config', [
     'offline',
@@ -420,8 +421,28 @@ def run(config_filepath):
     check_resources(resources, c.host)
     write_resources(c.publicdir, resources)
 
-def main():
-    config_filepath = abspath(join(dirname(__file__), 'config.ini'))
+def fetch(config_filepath):
     run(config_filepath)
+
+def usage():
+    stderr.write(
+        __doc__ + '\n'
+        '\n'
+        'Usage:\n'
+        '\n'
+        '    staticjoomla fetch   /PATH/TO/staticjoomla.ini\n'
+        '\n'
+    )
+    exit(1)
+
+def main():
+    try:
+        command = argv[1]
+    except IndexError:
+        return usage()
+    command_args = argv[2:]
+    if command == 'fetch' and len(command_args) == 1:
+        return fetch(*command_args)
+    return usage()
 
 main()
