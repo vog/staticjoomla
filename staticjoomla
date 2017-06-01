@@ -408,8 +408,8 @@ def get_config(config_filepath):
         publicdir=join(datadir, 'public'),
     )
 
-def run(config):
-    c = config
+def run(config_filepath):
+    c = get_config(config_filepath)
     if not c.offline:
         download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password)
     dl_raw_resources = get_resources(c.downloaddir)
@@ -422,7 +422,6 @@ def run(config):
 
 def main():
     config_filepath = abspath(join(dirname(__file__), 'config.ini'))
-    config = get_config(config_filepath)
-    run(config)
+    run(config_filepath)
 
 main()
