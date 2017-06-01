@@ -389,8 +389,8 @@ def write_resources(publicdir, resources):
             with open(outputpath, 'wb') as f:
                 f.write(r.data)
 
-def get_config(rootdir):
-    filepath = join(rootdir, 'config.ini')
+def get_config(datadir):
+    filepath = join(datadir, 'config.ini')
     cp = ConfigParser()
     cp.read(filepath)
     return Config(
@@ -402,10 +402,10 @@ def get_config(rootdir):
         password=cp.get('config', 'password'),
         keep_filenames=cp.get('config', 'keep_filenames').split(),
         own_domains=cp.get('config', 'own_domains').split(),
-        downloaddir=join(rootdir, 'download'),
-        additionaldir=join(rootdir, 'additional/public'),
-        templatepath=join(rootdir, 'additional/template.html'),
-        publicdir=join(rootdir, 'public'),
+        downloaddir=join(datadir, 'download'),
+        additionaldir=join(datadir, 'additional/public'),
+        templatepath=join(datadir, 'additional/template.html'),
+        publicdir=join(datadir, 'public'),
     )
 
 def run(config):
@@ -421,8 +421,8 @@ def run(config):
     write_resources(c.publicdir, resources)
 
 def main():
-    rootdir = abspath(dirname(__file__))
-    config = get_config(rootdir)
+    datadir = abspath(dirname(__file__))
+    config = get_config(datadir)
     run(config)
 
 main()
