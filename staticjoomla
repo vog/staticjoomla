@@ -405,7 +405,7 @@ def get_config(rootdir):
         downloaddir=join(rootdir, 'download'),
         additionaldir=join(rootdir, 'additional/public'),
         templatepath=join(rootdir, 'additional/template.html'),
-        publicdir=join(rootdir, 'output/public'),
+        publicdir=join(rootdir, 'public'),
     )
 
 def run(config):
