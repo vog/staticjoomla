@@ -29,7 +29,6 @@ from subprocess import PIPE, Popen
 from sys import argv, stderr
 
 Config = namedtuple('Config', [
-    'offline',
     'schema',
     'host',
     'port',
@@ -395,7 +394,6 @@ def get_config(config_filepath):
     cp.read(config_filepath)
     datadir = abspath(join(dirname(config_filepath), cp.get('config', 'datadir')))
     return Config(
-        offline={'yes': True, 'no': False}[cp.get('config', 'offline')],
         schema=cp.get('config', 'schema'),
         host=cp.get('config', 'host'),
         port=cp.get('config', 'port'),
@@ -409,9 +407,9 @@ def get_config(config_filepath):
         publicdir=join(datadir, 'public'),
     )
 
-def run(config_filepath):
+def run(config_filepath, offline):
     c = get_config(config_filepath)
-    if not c.offline:
+    if not offline:
         download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password)
     dl_raw_resources = get_resources(c.downloaddir)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.keep_filenames, c.own_domains)
@@ -422,7 +420,10 @@ def run(config_filepath):
     write_resources(c.publicdir, resources)
 
 def fetch(config_filepath):
-    run(config_filepath)
+    run(config_filepath, offline=False)
+
+def offline(config_filepath):
+    run(config_filepath, offline=True)
 
 def usage():
     stderr.write(
@@ -431,6 +432,7 @@ def usage():
         'Usage:\n'
         '\n'
         '    staticjoomla fetch   /PATH/TO/staticjoomla.ini\n'
+        '    staticjoomla offline /PATH/TO/staticjoomla.ini\n'
         '\n'
     )
     exit(1)
@@ -443,6 +445,8 @@ def main():
     command_args = argv[2:]
     if command == 'fetch' and len(command_args) == 1:
         return fetch(*command_args)
+    if command == 'offline' and len(command_args) == 1:
+        return offline(*command_args)
     return usage()
 
 main()
