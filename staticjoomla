@@ -18,16 +18,16 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 '''
 
-import ConfigParser
-import collections
-import errno
-import os
-import re
-import shutil
-import subprocess
-import sys
+from ConfigParser import ConfigParser
+from collections import namedtuple
+from errno import EEXIST
+from os import makedirs, mkdir, walk
+from os.path import abspath, dirname, exists, isdir, join
+from re import findall, sub
+from shutil import rmtree
+from subprocess import PIPE, Popen
 
-Config = collections.namedtuple('Config', [
+Config = namedtuple('Config', [
     'offline',
     'schema',
     'host',
@@ -42,7 +42,7 @@ Config = collections.namedtuple('Config', [
     'outputdir',
 ])
 
-Resource = collections.namedtuple('Resource', [
+Resource = namedtuple('Resource', [
     'path',
     'data',
 ])
@@ -50,9 +50,9 @@ Resource = collections.namedtuple('Resource', [
 def makedirs_exist_ok(name, mode):
     # Portability with Python 2, see http://stackoverflow.com/a/600612
     try:
-        os.makedirs(name, mode)
+        makedirs(name, mode)
     except OSError as e:
-        if e.errno == errno.EEXIST and os.path.isdir(name):
+        if e.errno == EEXIST and isdir(name):
             pass
         else:
             raise
@@ -72,9 +72,9 @@ def get_rel_path(path, basepath):
 
 def get_resources(resourcesdir):
     resources = []
-    for dirpath, dirnames, filenames in os.walk(resourcesdir):
+    for dirpath, dirnames, filenames in walk(resourcesdir):
         for filename in filenames:
-            filepath = os.path.join(dirpath, filename)
+            filepath = join(dirpath, filename)
             with open(filepath, 'rb') as f:
                 data = f.read()
             resources.append(
@@ -86,9 +86,9 @@ def get_resources(resourcesdir):
     return resources
 
 def download_website(downloaddir, schema, host, port, user, password):
-    if os.path.exists(downloaddir):
-        shutil.rmtree(downloaddir)
-    os.mkdir(downloaddir)
+    if exists(downloaddir):
+        rmtree(downloaddir)
+    mkdir(downloaddir)
     args = [
         'wget',
         '-rEpH',
@@ -102,7 +102,7 @@ def download_website(downloaddir, schema, host, port, user, password):
         '--http-password={}'.format(password),
         get_internal_url(schema, host, port),
     ]
-    proc = subprocess.Popen(args, cwd=downloaddir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = Popen(args, cwd=downloaddir, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     output, error = proc.communicate()
     if proc.returncode != 0:
         raise ValueError('Failed to download website:\n{output}\n{error}\n\nFailed to download website! Return code: {proc.returncode}\n'.format(**locals()))
@@ -147,12 +147,12 @@ def stabilize_hidden_form_field_names(resource):
     if has_binary_suffix(resource.path):
         return resource.data
     data = resource.data
-    data = re.sub(
+    data = sub(
         r'<input type="hidden" name="[0-9a-f]{32}" value="1" />',
         '<input type="hidden" name="e7db122ac127e2f53c2595250560f9f6" value="1" />',
         data,
     )
-    data = re.sub(
+    data = sub(
         r'<input type="hidden" name="return" value="[^"]+" />',
         '<input type="hidden" name="return" value="" />',
         data,
@@ -178,7 +178,7 @@ def stabilize_email_obfuscation_ids(resource):
     if has_binary_suffix(resource.path):
         return resource.data
     new_offset = 89677
-    cloak_numbers_with_duplicates = re.findall(r'cloak([0-9]+)', resource.data)
+    cloak_numbers_with_duplicates = findall(r'cloak([0-9]+)', resource.data)
     cloak_numbers = without_duplicates_keep_order(cloak_numbers_with_duplicates)
     prefixes = ['cloak', 'addy', 'addy_text']
     replacements = [
@@ -191,17 +191,17 @@ def stabilize_email_obfuscation_ids(resource):
 def remove_base_href(resource):
     if has_binary_suffix(resource.path):
         return resource.data
-    return re.sub(r'[\t ]*<base href="[^"]*"[\t ]*/>\n', '', resource.data)
+    return sub(r'[\t ]*<base href="[^"]*"[\t ]*/>\n', '', resource.data)
 
 def remove_author_tags(resource):
     if has_binary_suffix(resource.path):
         return resource.data
-    return re.sub(r'[\t ]*<meta name="author" content="[^"]+" />\n', '', resource.data)
+    return sub(r'[\t ]*<meta name="author" content="[^"]+" />\n', '', resource.data)
 
 def remove_duplicate_jcaption(resource):
     if has_binary_suffix(resource.path):
         return resource.data
-    return re.sub(
+    return sub(
         r'''(jQuery\(window\).on\('load',  function\(\) \{\n\s+new JCaption\('img.caption'\);\n\s+\}\);\n){2,}''',
         r'\1',
         resource.data,
@@ -210,17 +210,17 @@ def remove_duplicate_jcaption(resource):
 def remove_link_rel_canonical(resource):
     if has_binary_suffix(resource.path):
         return resource.data
-    return re.sub(r'[\t ]*<link href="[^"]+" rel="canonical" />\n', '', resource.data)
+    return sub(r'[\t ]*<link href="[^"]+" rel="canonical" />\n', '', resource.data)
 
 def remove_link_rel_search(resource):
     if has_binary_suffix(resource.path):
         return resource.data
-    return re.sub(r'[\t ]*<link href="[^"]+" rel="search" title="[^"]+" type="[^"]+" />\n', '', resource.data)
+    return sub(r'[\t ]*<link href="[^"]+" rel="search" title="[^"]+" type="[^"]+" />\n', '', resource.data)
 
 def remove_noscript_tag(resource):
     if has_binary_suffix(resource.path):
         return resource.data
-    return re.sub(r'<noscript>.*?</noscript>', '', resource.data)
+    return sub(r'<noscript>.*?</noscript>', '', resource.data)
 
 def fix_links(schema, host, port, own_domains):
     def f(resource):
@@ -242,7 +242,7 @@ def fix_links(schema, host, port, own_domains):
             if href.startswith('//'):
                 return 'href="{}"'.format(href)
             return 'href="{}{}"'.format(relative_prefix, href[len('/'):])
-        data = re.sub(r'href="([^"]*)"', replace_href, data)
+        data = sub(r'href="([^"]*)"', replace_href, data)
         return data
     return f
 
@@ -355,7 +355,7 @@ def check_linked_domains(host, resources):
     for r in resources:
         if has_binary_suffix(r.path):
             continue
-        linked_domains = re.findall(r'//([a-z0-9.][a-z0-9.-]*)', r.data)
+        linked_domains = findall(r'//([a-z0-9.][a-z0-9.-]*)', r.data)
         for domain in linked_domains:
             if domain in internal_domains:
                 raise ValueError('Resource {!r} contains link to internal domain {!r}'.format(r.path, domain))
@@ -369,17 +369,17 @@ def check_resources(resources, host):
     check_linked_domains(host, resources)
 
 def write_resources(outputdir, resources):
-    if os.path.exists(outputdir):
-        shutil.rmtree(outputdir)
+    if exists(outputdir):
+        rmtree(outputdir)
     for r in resources:
-        outputpath = os.path.join(outputdir, r.path)
-        makedirs_exist_ok(os.path.dirname(outputpath), 0700)
+        outputpath = join(outputdir, r.path)
+        makedirs_exist_ok(dirname(outputpath), 0700)
         with open(outputpath, 'wb') as f:
             f.write(r.data)
 
 def get_config(rootdir):
-    filepath = os.path.join(rootdir, 'config.ini')
-    cp = ConfigParser.ConfigParser()
+    filepath = join(rootdir, 'config.ini')
+    cp = ConfigParser()
     cp.read(filepath)
     return Config(
         offline={'yes': True, 'no': False}[cp.get('config', 'offline')],
@@ -390,10 +390,10 @@ def get_config(rootdir):
         password=cp.get('config', 'password'),
         keep_filenames=cp.get('config', 'keep_filenames').split(),
         own_domains=cp.get('config', 'own_domains').split(),
-        downloaddir=os.path.join(rootdir, 'download'),
-        additionaldir=os.path.join(rootdir, 'additional/public'),
-        templatepath=os.path.join(rootdir, 'additional/template.html'),
-        outputdir=os.path.join(rootdir, 'output/public'),
+        downloaddir=join(rootdir, 'download'),
+        additionaldir=join(rootdir, 'additional/public'),
+        templatepath=join(rootdir, 'additional/template.html'),
+        outputdir=join(rootdir, 'output/public'),
     )
 
 def run(config):
@@ -409,7 +409,7 @@ def run(config):
     write_resources(c.outputdir, resources)
 
 def main():
-    rootdir = os.path.abspath(os.path.dirname(__file__))
+    rootdir = abspath(dirname(__file__))
     config = get_config(rootdir)
     run(config)
 
