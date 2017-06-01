@@ -21,7 +21,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from ConfigParser import ConfigParser
 from collections import namedtuple
 from errno import EEXIST
-from os import makedirs, mkdir, walk
+from os import makedirs, mkdir, rename, walk
 from os.path import abspath, dirname, exists, isdir, join
 from re import findall, sub
 from shutil import rmtree
@@ -66,7 +66,8 @@ def almost_atomic_directory_replace(dirpath, keep_prev):
     yield dirpath_next
     if exists(dirpath_prev):
         rmtree(dirpath_prev)
-    rename(dirpath, dirpath_prev)
+    if exists(dirpath):
+        rename(dirpath, dirpath_prev)
     rename(dirpath_next, dirpath)
     if not keep_prev:
         rmtree(dirpath_prev)
@@ -383,7 +384,7 @@ def check_resources(resources, host):
 def write_resources(outputdir, resources):
     for outputdir_next in almost_atomic_directory_replace(outputdir, keep_prev=True):
         for r in resources:
-            outputpath = join(outputdir, r.path)
+            outputpath = join(outputdir_next, r.path)
             makedirs_exist_ok(dirname(outputpath), 0700)
             with open(outputpath, 'wb') as f:
                 f.write(r.data)
