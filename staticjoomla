@@ -39,7 +39,7 @@ Config = namedtuple('Config', [
     'downloaddir',
     'additionaldir',
     'templatepath',
-    'outputdir',
+    'publicdir',
 ])
 
 Resource = namedtuple('Resource', [
@@ -381,10 +381,10 @@ def check_resources(resources, host):
     check_internal_host(host, resources)
     check_linked_domains(host, resources)
 
-def write_resources(outputdir, resources):
-    for outputdir_next in almost_atomic_directory_replace(outputdir, keep_prev=True):
+def write_resources(publicdir, resources):
+    for publicdir_next in almost_atomic_directory_replace(publicdir, keep_prev=True):
         for r in resources:
-            outputpath = join(outputdir_next, r.path)
+            outputpath = join(publicdir_next, r.path)
             makedirs_exist_ok(dirname(outputpath), 0700)
             with open(outputpath, 'wb') as f:
                 f.write(r.data)
@@ -405,7 +405,7 @@ def get_config(rootdir):
         downloaddir=join(rootdir, 'download'),
         additionaldir=join(rootdir, 'additional/public'),
         templatepath=join(rootdir, 'additional/template.html'),
-        outputdir=join(rootdir, 'output/public'),
+        publicdir=join(rootdir, 'output/public'),
     )
 
 def run(config):
@@ -418,7 +418,7 @@ def run(config):
     additional_resources = apply_template(additional_raw_resources, c.templatepath)
     resources = dl_resources + additional_resources
     check_resources(resources, c.host)
-    write_resources(c.outputdir, resources)
+    write_resources(c.publicdir, resources)
 
 def main():
     rootdir = abspath(dirname(__file__))
