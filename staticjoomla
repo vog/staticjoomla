@@ -389,10 +389,10 @@ def write_resources(publicdir, resources):
             with open(outputpath, 'wb') as f:
                 f.write(r.data)
 
-def get_config(datadir):
-    filepath = join(datadir, 'config.ini')
+def get_config(config_filepath):
     cp = ConfigParser()
-    cp.read(filepath)
+    cp.read(config_filepath)
+    datadir = abspath(join(dirname(config_filepath), cp.get('config', 'datadir')))
     return Config(
         offline={'yes': True, 'no': False}[cp.get('config', 'offline')],
         schema=cp.get('config', 'schema'),
@@ -421,8 +421,8 @@ def run(config):
     write_resources(c.publicdir, resources)
 
 def main():
-    datadir = abspath(dirname(__file__))
-    config = get_config(datadir)
+    config_filepath = abspath(join(dirname(__file__), 'config.ini'))
+    config = get_config(config_filepath)
     run(config)
 
 main()
