@@ -34,6 +34,7 @@ Config = namedtuple('Config', [
     'port',
     'user',
     'password',
+    'paths',
     'keep_filenames',
     'own_domains',
     'downloaddir',
@@ -100,7 +101,7 @@ def get_resources(resourcesdir):
             )
     return resources
 
-def download_website(downloaddir, schema, host, port, user, password):
+def download_website(downloaddir, schema, host, port, user, password, paths):
     args = [
         'wget',
         '-rEpH',
@@ -112,8 +113,12 @@ def download_website(downloaddir, schema, host, port, user, password):
         '-nv',
         '--http-user={}'.format(user),
         '--http-password={}'.format(password),
-        get_internal_url(schema, host, port),
     ]
+    assert len(paths) >= 1
+    for path in paths:
+        assert path.startswith('/')
+        path_without_leading_slash = path[1:]
+        args.append(get_internal_url(schema, host, port) + path_without_leading_slash)
     for downloaddir_next in almost_atomic_directory_replace(downloaddir, keep_prev=True):
         proc = Popen(args, cwd=downloaddir_next, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         output, error = proc.communicate()
@@ -393,12 +398,19 @@ def get_config(config_filepath):
     cp = ConfigParser()
     cp.read(config_filepath)
     datadir = abspath(join(dirname(config_filepath), cp.get('config', 'datadir')))
+    paths = cp.get('config', 'paths').split()
+    if len(paths) == 0:
+        raise ValueError('Empty list of paths')
+    for path in paths:
+        if not path.startswith('/'):
+            raise ValueError('Path does not start with "/" (slash): {path!r}'.format(**locals()))
     return Config(
         schema=cp.get('config', 'schema'),
         host=cp.get('config', 'host'),
         port=cp.get('config', 'port'),
         user=cp.get('config', 'user'),
         password=cp.get('config', 'password'),
+        paths=paths,
         keep_filenames=cp.get('config', 'keep_filenames').split(),
         own_domains=cp.get('config', 'own_domains').split(),
         downloaddir=join(datadir, 'download'),
@@ -410,7 +422,7 @@ def get_config(config_filepath):
 def run(config_filepath, offline):
     c = get_config(config_filepath)
     if not offline:
-        download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password)
+        download_website(c.downloaddir, c.schema, c.host, c.port, c.user, c.password, c.paths)
     dl_raw_resources = get_resources(c.downloaddir)
     dl_resources = cleanup_resources(dl_raw_resources, c.schema, c.host, c.port, c.keep_filenames, c.own_domains)
     additional_raw_resources = get_resources(c.additionaldir)
