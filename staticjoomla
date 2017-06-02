@@ -419,7 +419,7 @@ def run(config_filepath, offline):
     check_resources(resources, c.host)
     write_resources(c.publicdir, resources)
 
-def fetch(config_filepath):
+def update(config_filepath):
     run(config_filepath, offline=False)
 
 def offline(config_filepath):
@@ -431,7 +431,7 @@ def usage():
         '\n'
         'Usage:\n'
         '\n'
-        '    staticjoomla fetch   /PATH/TO/staticjoomla.ini\n'
+        '    staticjoomla update  /PATH/TO/staticjoomla.ini\n'
         '    staticjoomla offline /PATH/TO/staticjoomla.ini\n'
         '\n'
     )
@@ -443,8 +443,8 @@ def main():
     except IndexError:
         return usage()
     command_args = argv[2:]
-    if command == 'fetch' and len(command_args) == 1:
-        return fetch(*command_args)
+    if command == 'update' and len(command_args) == 1:
+        return update(*command_args)
     if command == 'offline' and len(command_args) == 1:
         return offline(*command_args)
     return usage()
