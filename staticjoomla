@@ -21,7 +21,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from ConfigParser import ConfigParser
 from collections import namedtuple
 from errno import EEXIST
-from os import makedirs, mkdir, rename, walk
+from os import chmod, makedirs, mkdir, rename, walk
 from os.path import abspath, dirname, exists, isdir, join
 from re import findall, sub
 from shutil import rmtree
@@ -387,11 +387,14 @@ def check_resources(resources, host):
     check_linked_domains(host, resources)
 
 def write_resources(publicdir, resources):
+    dir_mode = 0o755
+    file_mode = 0o644
     for publicdir_next in almost_atomic_directory_replace(publicdir, keep_prev=True):
         for r in resources:
             outputpath = join(publicdir_next, r.path)
-            makedirs_exist_ok(dirname(outputpath), 0700)
+            makedirs_exist_ok(dirname(outputpath), dir_mode)
             with open(outputpath, 'wb') as f:
+                chmod(outputpath, file_mode)
                 f.write(r.data)
 
 def get_config(config_filepath):
