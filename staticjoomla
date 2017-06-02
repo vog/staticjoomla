@@ -101,20 +101,20 @@ def get_resources(resourcesdir):
     return resources
 
 def download_website(downloaddir, schema, host, port, user, password):
+    args = [
+        'wget',
+        '-rEpH',
+        '-nH',
+        '-l',
+        'inf',
+        '-D',
+        host,
+        '-nv',
+        '--http-user={}'.format(user),
+        '--http-password={}'.format(password),
+        get_internal_url(schema, host, port),
+    ]
     for downloaddir_next in almost_atomic_directory_replace(downloaddir, keep_prev=True):
-        args = [
-            'wget',
-            '-rEpH',
-            '-nH',
-            '-l',
-            'inf',
-            '-D',
-            host,
-            '-nv',
-            '--http-user={}'.format(user),
-            '--http-password={}'.format(password),
-            get_internal_url(schema, host, port),
-        ]
         proc = Popen(args, cwd=downloaddir_next, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         output, error = proc.communicate()
         if proc.returncode != 0:
