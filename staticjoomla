@@ -122,7 +122,9 @@ def download_website(downloaddir, schema, host, port, user, password, paths):
     for downloaddir_next in almost_atomic_directory_replace(downloaddir, keep_prev=True):
         proc = Popen(args, cwd=downloaddir_next, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         output, error = proc.communicate()
-        if proc.returncode != 0:
+        if proc.returncode == 8:
+            stderr.write('Download result:\n{output}\n{error}\n\nWarning: Website has broken links!\n\n'.format(**locals()))
+        elif proc.returncode != 0:
             raise ValueError('Failed to download website:\n{output}\n{error}\n\nFailed to download website! Return code: {proc.returncode}\n'.format(**locals()))
 
 def has_binary_suffix(path):
