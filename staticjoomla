@@ -130,16 +130,24 @@ def download_website(downloaddir, schema, host, port, user, password, paths):
 def has_binary_suffix(path):
     binary_suffixes = [
         '.JPG',
+        '.avi',
         '.eot',
         '.gif',
         '.ico',
         '.jpeg',
         '.jpg',
         '.js',
+        '.mkv',
+        '.mp3',
+        '.mp4',
+        '.ogg',
+        '.opus',
         '.pdf',
         '.png',
         '.swf',
         '.ttf',
+        '.wav',
+        '.webm',
         '.woff',
     ]
     text_suffixes = [
